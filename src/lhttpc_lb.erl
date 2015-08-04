@@ -26,8 +26,9 @@
                 clients :: ets:tid(),
                 free=[] :: list()}).
 
--export_types([host/0, port/0, max_connections/0, connection_timeout/0]).
--type proplist() :: [{atom(),any()}].
+-export_type([tagged_tuples/0]).
+
+-type tagged_tuples() :: [{atom(),any()}].
 -type host() :: inet:ip_address()|string().
 -type port_number() :: 1..65535.
 -type max_connections() :: pos_integer().
@@ -47,12 +48,12 @@ checkout(Host, Port, Ssl, MaxConn, ConnTimeout) ->
     gen_server:call(Lb, {checkout, self()}, infinity).
 
 %% Returns the LB state
--spec status() -> proplist().
+-spec status() -> tagged_tuples().
 status() ->
   lists:foldl(fun statf/2,[],ets:tab2list(?MODULE)).
 
--spec statf({{host(), port_number(), boolean()}, pid()}, proplist()) ->
-               proplist().
+-spec statf({{host(), port_number(), boolean()}, pid()}, tagged_tuples()) ->
+               tagged_tuples().
 statf({{Host,Port,Ssl},Pid},Acc) ->
   [[{host,Host},{port,Port},{ssl,Ssl}]++gen_server:call(Pid, status)|Acc].
 
