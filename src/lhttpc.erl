@@ -34,20 +34,20 @@
 
 %% this is the API module; xref ignore all exports
 -ignore_xref(
-   [start/0, stop/0, start/2, stop/1
-    , lb_status/0
-    , request/4, request/5, request/6, request/9
-    , send_body_part/2, send_body_part/3
-    , send_trailers/2, send_trailers/3
-    , get_body_part/1, get_body_part/2]).
+   [start/0, stop/0, start/2, stop/1,
+    lb_status/0,
+    request/4, request/5, request/6, request/9,
+    send_body_part/2, send_body_part/3,
+    send_trailers/2, send_trailers/3,
+    get_body_part/1, get_body_part/2]).
 
 -export(
-   [start/0, stop/0, start/2, stop/1
-    , lb_status/0
-    , request/4, request/5, request/6, request/9
-    , send_body_part/2, send_body_part/3
-    , send_trailers/2, send_trailers/3
-    , get_body_part/1, get_body_part/2]).
+   [start/0, stop/0, start/2, stop/1,
+    lb_status/0,
+    request/4, request/5, request/6, request/9,
+    send_body_part/2, send_body_part/3,
+    send_trailers/2, send_trailers/3,
+    get_body_part/1, get_body_part/2]).
 
 -include("lhttpc_types.hrl").
 
