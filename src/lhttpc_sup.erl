@@ -36,9 +36,6 @@
 -export([start_link/0, start_link/1]).
 -export([init/1]).
 
--type child() :: {atom(), {atom(), atom(), list(any)},
-    atom(), integer(), atom(), list(atom())}.
-
 %% @spec () -> {ok, pid()} | {error, Reason}
 %% Reason = atom()
 %% @doc Starts and links to the supervisor.
@@ -53,7 +50,6 @@ start_link(Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
 %% @hidden
--spec init(any()) -> {ok, {{atom(), integer(), integer()}, [child()]}}.
 init(Opts) ->
     init_ets(Opts),
     {ok, {{simple_one_for_one, 10, 1}, [

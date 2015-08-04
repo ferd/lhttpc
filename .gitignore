@@ -1,4 +1,11 @@
-ebin/
+\#*
+.\#*
+
+
+/.dialyzer_plt
+/.rebar/
+/.eunit/
+/ebin/
 
 doc/edoc-info
 doc/*.html
@@ -8,8 +15,6 @@ util/*.beam
 cover_report/
 test/*.beam
 test/*.log
-
-.eunit
 
 *.swp
 *.swo

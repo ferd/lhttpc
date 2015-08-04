@@ -54,15 +54,9 @@
 -spec start(normal | {takeover, node()} | {failover, node()}, any()) ->
     {ok, pid()}.
 start(_, Opts) ->
-    case lists:member({seed,1}, ssl:module_info(exports)) of
-        true ->
-            % Make sure that the ssl random number generator is seeded
-            % This was new in R13 (ssl-3.10.1 in R13B vs. ssl-3.10.0 in R12B-5)
-            ssl:seed(crypto:rand_bytes(255));
-        false ->
-            ok
-    end,
-    if is_list(Opts) -> lhttpc_sup:start_link(Opts);
+%% used to be some code to init ssl here, but that stopped working in R14
+    if
+       is_list(Opts) -> lhttpc_sup:start_link(Opts);
        true -> lhttpc_sup:start_link()
     end.
 
@@ -75,16 +69,17 @@ stop(_) ->
 %%   Reason = term()
 %% @doc
 %% Start the application.
-%% This is a helper function that will call `application:start(lhttpc)' to
+%% This is a helper function that will call
+%% `application:ensure_all_started(lhttpc)' to
 %% allow the library to be started using the `-s' flag.
 %% For instance:
-%% `$ erl -s crypto -s ssl -s lhttpc'
+%% `$ erl -s lhttpc'
 %%
 %% For more info on possible return values the `application' module.
 %% @end
 -spec start() -> ok | {error, any()}.
 start() ->
-    application:start(lhttpc).
+    application:ensure_all_started(lhttpc).
 
 %% @spec () -> ok | {error, Reason}
 %%   Reason = term()
@@ -104,7 +99,7 @@ stop() ->
 %%   Hdrs = [{Header, Value}]
 %%   Header = string() | binary() | atom()
 %%   Value = string() | binary()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Result = {ok, {{StatusCode, ReasonPhrase}, Hdrs, ResponseBody}}
 %%            | {error, Reason}
 %%   StatusCode = integer()
@@ -117,8 +112,7 @@ stop() ->
 %% `request(URL, Method, Hdrs, <<>>, Timeout)'.
 %% @end
 %% @see request/9
--spec request(string(), string() | atom(), headers(), pos_integer() |
-        infinity) -> result().
+-spec request(string(), string() | atom(), headers(), timeout()) -> result().
 request(URL, Method, Hdrs, Timeout) ->
     request(URL, Method, Hdrs, [], Timeout, []).
 
@@ -129,7 +123,7 @@ request(URL, Method, Hdrs, Timeout) ->
 %%   Header = string() | binary() | atom()
 %%   Value = string() | binary()
 %%   RequestBody = iolist()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Result = {ok, {{StatusCode, ReasonPhrase}, Hdrs, ResponseBody}}
 %%            | {error, Reason}
 %%   StatusCode = integer()
@@ -142,7 +136,7 @@ request(URL, Method, Hdrs, Timeout) ->
 %% @end
 %% @see request/9
 -spec request(string(), string() | atom(), headers(), iolist(),
-        pos_integer() | infinity) -> result().
+        timeout()) -> result().
 request(URL, Method, Hdrs, Body, Timeout) ->
     request(URL, Method, Hdrs, Body, Timeout, []).
 
@@ -153,9 +147,10 @@ request(URL, Method, Hdrs, Body, Timeout) ->
 %%   Header = string() | binary() | atom()
 %%   Value = string() | binary()
 %%   RequestBody = iolist()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Options = [Option]
 %%   Option = {connect_timeout, Milliseconds | infinity} |
+%%            {connection_timeout, Milliseconds | infinity} |
 %%            {connect_options, [ConnectOptions]} |
 %%            {send_retry, integer()} |
 %%            {partial_upload, WindowSize} |
@@ -184,7 +179,7 @@ request(URL, Method, Hdrs, Body, Timeout) ->
 %% @end
 %% @see request/9
 -spec request(string(), string() | atom(), headers(), iolist(),
-        pos_integer() | infinity, [option()]) -> result().
+        timeout(), [option()]) -> result().
 request(URL, Method, Hdrs, Body, Timeout, Options) ->
     {Host, Port, Path, Ssl} = lhttpc_lib:parse_url(URL),
     request(Host, Port, Ssl, Path, Method, Hdrs, Body, Timeout, Options).
@@ -200,9 +195,10 @@ request(URL, Method, Hdrs, Body, Timeout, Options) ->
 %%   Header = string() | binary() | atom()
 %%   Value = string() | binary()
 %%   RequestBody = iolist()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Options = [Option]
 %%   Option = {connect_timeout, Milliseconds | infinity} |
+%%            {connection_timeout, Milliseconds | infinity} |
 %%            {connect_options, [ConnectOptions]} |
 %%            {send_retry, integer()} |
 %%            {partial_upload, WindowSize} |
@@ -256,6 +252,9 @@ request(URL, Method, Hdrs, Body, Timeout, Options) ->
 %% client will also give up. The default value is infinity, which means that
 %% it will either give up when the TCP stack gives up, or when the overall
 %% request timeout is reached.
+%%
+%% `{connection_timeout, MilliSeconds}' specifies for how long the client
+%%  will try to keep a HTTP/1.1 connection open.
 %%
 %% `{connect_options, Options}' specifies options to pass to the socket at
 %% connect time. This makes it possible to specify both SSL options and
@@ -320,9 +319,9 @@ request(URL, Method, Hdrs, Body, Timeout, Options) ->
 %% process.
 %% @end
 -spec request(string(), 1..65535, true | false, string(), atom() | string(),
-    headers(), iolist(), pos_integer(), [option()]) -> result().
+    headers(), iolist(), timeout(), [option()]) -> result().
 request(Host, Port, Ssl, Path, Method, Hdrs, Body, Timeout, Options) ->
-    verify_options(Options, []),
+    ok = verify_options(Options),
     ReqId = now(),
     case proplists:is_defined(stream_to, Options) of
         true ->
@@ -357,7 +356,7 @@ request(Host, Port, Ssl, Path, Method, Hdrs, Body, Timeout, Options) ->
 
 %% @spec (UploadState :: UploadState, BodyPart :: BodyPart) -> Result
 %%   BodyPart = iolist() | binary()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Result = {error, Reason} | UploadState
 %%   Reason = connection_closed | connect_timeout | timeout
 %% @doc Sends a body part to an ongoing request when
@@ -374,7 +373,7 @@ send_body_part({Pid, Window}, IoList) ->
 
 %% @spec (UploadState :: UploadState, BodyPart :: BodyPart, Timeout) -> Result
 %%   BodyPart = iolist() | binary()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Result = {error, Reason} | UploadState
 %%   Reason = connection_closed | connect_timeout | timeout
 %% @doc Sends a body part to an ongoing request when
@@ -448,7 +447,7 @@ send_trailers({Pid, Window}, Trailers) ->
 %%   Trailers = [{Header, Value}]
 %%   Header = string() | binary() | atom()
 %%   Value = string() | binary()
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Result = {ok, {{StatusCode, ReasonPhrase}, Hdrs, ResponseBody}}
 %%            | {error, Reason}
 %%   Reason = connection_closed | connect_timeout | timeout
@@ -464,8 +463,8 @@ send_trailers({Pid, Window}, Trailers) ->
 %% `Timeout' milliseconds the request is canceled and `{error, timeout}' is
 %% returned.
 %% @end
--spec send_trailers({pid(), window_size()}, [{string() | string()}],
-        timeout()) -> result().
+-spec send_trailers({pid(), window_size()}, headers(), timeout()) ->
+                       result().
 send_trailers({Pid, _Window}, Trailers, Timeout)
         when is_list(Trailers), is_pid(Pid) ->
     Pid ! {trailers, self(), Trailers},
@@ -488,7 +487,7 @@ get_body_part(Pid) ->
     get_body_part(Pid, infinity).
 
 %% @spec (HTTPClient :: pid(), Timeout:: Timeout) -> Result
-%%   Timeout = integer() | infinity
+%%   Timeout = timeout()
 %%   Result = {ok, BodyPart} | {ok, {http_eob, Trailers}}
 %%   BodyPart = binary()
 %%   Trailers = [{Header, Value}]
@@ -561,7 +560,12 @@ kill_client_after(Pid, Timeout) ->
         end
     end.
 
--spec verify_options(options(), options()) -> ok.
+verify_options(Opts) ->
+    case verify_options(Opts, []) of
+        []   -> ok;
+        Errs -> error({bad_options,Errs})
+    end.
+
 verify_options([{send_retry, N} | Options], Errors)
         when is_integer(N), N >= 0 ->
     verify_options(Options, Errors);
@@ -599,16 +603,9 @@ verify_options([{stream_to, Pid} | Options], Errors) when is_pid(Pid) ->
     verify_options(Options, Errors);
 verify_options([Option | Options], Errors) ->
     verify_options(Options, [Option | Errors]);
-verify_options([], []) ->
-    ok;
 verify_options([], Errors) ->
-    bad_options(Errors).
+    Errors.
 
--spec bad_options(options()) -> no_return().
-bad_options(Errors) ->
-    erlang:error({bad_options, Errors}).
-
--spec verify_partial_download(options(), options()) -> options().
 verify_partial_download([{window_size, infinity} | Options], Errors)->
     verify_partial_download(Options, Errors);
 verify_partial_download([{window_size, Size} | Options], Errors) when
