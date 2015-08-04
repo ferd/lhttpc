@@ -4,7 +4,8 @@
 %%% connection attempts from clients.
 -module(lhttpc_lb).
 -behaviour(gen_server).
--export([start_link/5, checkout/5, checkin/3, checkin/4]).
+-export([start_link/5, checkout/5, checkin/4]).
+-export([status/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
@@ -39,6 +40,16 @@ start_link(Host, Port, Ssl, MaxConn, ConnTimeout) ->
 checkout(Host, Port, Ssl, MaxConn, ConnTimeout) ->
     Lb = find_lb({Host,Port,Ssl}, {MaxConn, ConnTimeout}),
     gen_server:call(Lb, {checkout, self()}, infinity).
+
+%% Returns the LB state
+-spec status() -> proplist().
+status() ->
+  ets:foldl(fun statf/2,[],?MODULE).
+
+-spec statf({{host(), port_number(), boolean()}, pid()}, proplist()) ->
+               proplist().
+statf({{Host,Port,Ssl},Pid},Acc) ->
+  [[{host,Host},{port,Port},{ssl,Ssl}]++gen_server:call(Pid, status)|Acc].
 
 
 %% Called when we're done and the socket can still be reused
@@ -76,6 +87,14 @@ init({Host,Port,Ssl,MaxConn,ConnTimeout}) ->
         false ->
             ignore
     end.
+
+handle_call(status, _From, S) ->
+    Stat = [{client_count,ets:info(S#state.clients, size)},
+            {max_conn,S#state.max_conn},
+            {connection_timeout,S#state.timeout},
+            {pid,self()},
+            {free_count,length(S#state.free)}],
+    {reply,Stat,S};
 
 handle_call({checkout,Pid}, _From, S = #state{free=[], max_conn=Max, clients=Tid}) ->
     Size = ets:info(Tid, size),

@@ -32,18 +32,13 @@
 -module(lhttpc).
 -behaviour(application).
 
--export([start/0, stop/0, request/4, request/5, request/6, request/9]).
--export([start/2, stop/1]).
--export([
-        send_body_part/2,
-        send_body_part/3,
-        send_trailers/2,
-        send_trailers/3
-    ]).
--export([
-        get_body_part/1,
-        get_body_part/2
-        ]).
+-export(
+   [start/0, stop/0, start/2, stop/1
+    , lb_status/0
+    , request/4, request/5, request/6, request/9
+    , send_body_part/2, send_body_part/3
+    , send_trailers/2, send_trailers/3
+    , get_body_part/1, get_body_part/2]).
 
 -include("lhttpc_types.hrl").
 
@@ -620,3 +615,6 @@ verify_partial_download([Option | Options], Errors) ->
     verify_partial_download(Options, [Option | Errors]);
 verify_partial_download([], Errors) ->
     Errors.
+
+lb_status() ->
+    lhttpc_lb:status().
