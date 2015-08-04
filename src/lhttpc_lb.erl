@@ -6,8 +6,11 @@
 -behaviour(gen_server).
 
 -ignore_xref([start_link/5]). %% used by supervisor
--export([start_link/5, checkout/5, checkin/4]).
+-export([start_link/5]).
+%% the api
+-export([checkout/5, checkin/4]).
 -export([status/0]).
+%% gen_Server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
