@@ -49,7 +49,7 @@ checkout(Host, Port, Ssl, MaxConn, ConnTimeout) ->
 %% Returns the LB state
 -spec status() -> proplist().
 status() ->
-  ets:foldl(fun statf/2,[],?MODULE).
+  lists:foldl(fun statf/2,[],ets:tab2list(?MODULE)).
 
 -spec statf({{host(), port_number(), boolean()}, pid()}, proplist()) ->
                proplist().
