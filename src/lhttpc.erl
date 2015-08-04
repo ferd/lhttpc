@@ -55,14 +55,9 @@
                   {error, atom()}.
 
 %% @hidden
--spec start(normal | {takeover, node()} | {failover, node()}, any()) ->
-    {ok, pid()}.
-start(_, Opts) ->
-%% used to be some code to init ssl here, but that stopped working in R14
-    if
-       is_list(Opts) -> lhttpc_sup:start_link(Opts);
-       true -> lhttpc_sup:start_link()
-    end.
+-spec start(any(), any()) -> {ok, pid()}.
+start(_, Opts) when is_list(Opts) -> lhttpc_sup:start_link(Opts);
+start(_,_) -> lhttpc_sup:start_link().
 
 %% @hidden
 -spec stop(any()) -> ok.
