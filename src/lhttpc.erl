@@ -52,7 +52,7 @@
 -include("lhttpc_types.hrl").
 
 -type result() :: {ok, {{pos_integer(), string()}, headers(), binary()}} |
-    {error, atom()}.
+                  {error, atom()}.
 
 %% @hidden
 -spec start(normal | {takeover, node()} | {failover, node()}, any()) ->
