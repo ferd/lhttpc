@@ -4,6 +4,8 @@
 %%% connection attempts from clients.
 -module(lhttpc_lb).
 -behaviour(gen_server).
+
+-ignore_xref([start_link/5]). %% used by supervisor
 -export([start_link/5, checkout/5, checkin/4]).
 -export([status/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
