@@ -92,6 +92,19 @@ start() ->
 stop() ->
     application:stop(lhttpc).
 
+%% @spec () -> [TaggedTuples].
+%%   TaggedTuples = [{Key,Value}]
+%%   Key = atom()
+%%   Value = term()
+%% @doc
+%% The load balancer will start an instance for each connection.
+%% This function returns information about each load balancer instance,
+%% in the form of a list of lists of tagged tuples.
+%% @end
+-spec lb_status() -> lhttpc_lb:tagged_tuples().
+lb_status() ->
+    lhttpc_lb:status().
+
 %% @spec (URL, Method, Hdrs, Timeout) -> Result
 %%   URL = string()
 %%   Method = string() | atom()
@@ -619,6 +632,3 @@ verify_partial_download([Option | Options], Errors) ->
     verify_partial_download(Options, [Option | Errors]);
 verify_partial_download([], Errors) ->
     Errors.
-
-lb_status() ->
-    lhttpc_lb:status().
