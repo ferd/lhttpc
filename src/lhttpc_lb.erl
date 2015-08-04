@@ -10,7 +10,7 @@
 %% the api
 -export([checkout/5, checkin/4]).
 -export([status/0]).
-%% gen_Server callbacks
+%% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
