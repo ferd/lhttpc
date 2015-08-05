@@ -4,7 +4,13 @@
 %%% connection attempts from clients.
 -module(lhttpc_lb).
 -behaviour(gen_server).
--export([start_link/5, checkout/5, checkin/3, checkin/4]).
+
+-ignore_xref([start_link/5]). %% used by supervisor
+-export([start_link/5]).
+%% the api
+-export([checkout/5, checkin/4]).
+-export([status/0]).
+%% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
@@ -20,7 +26,9 @@
                 clients :: ets:tid(),
                 free=[] :: list()}).
 
--export_types([host/0, port/0, max_connections/0, connection_timeout/0]).
+-export_type([tagged_tuples/0]).
+
+-type tagged_tuples() :: [{atom(),any()}].
 -type host() :: inet:ip_address()|string().
 -type port_number() :: 1..65535.
 -type max_connections() :: pos_integer().
@@ -39,13 +47,16 @@ checkout(Host, Port, Ssl, MaxConn, ConnTimeout) ->
     Lb = find_lb({Host,Port,Ssl}, {MaxConn, ConnTimeout}),
     gen_server:call(Lb, {checkout, self()}, infinity).
 
-%% Called when the socket has died and we're done
--spec checkin(host(), port_number(), SSL::boolean()) -> ok.
-checkin(Host, Port, Ssl) ->
-    case find_lb({Host,Port,Ssl}) of
-        {error, undefined} -> ok; % LB is dead. Pretend it's fine -- we don't care
-        {ok, Pid} -> gen_server:cast(Pid, {checkin, self()})
-    end.
+%% Returns the LB state
+-spec status() -> tagged_tuples().
+status() ->
+  lists:foldl(fun statf/2,[],ets:tab2list(?MODULE)).
+
+-spec statf({{host(), port_number(), boolean()}, pid()}, tagged_tuples()) ->
+               tagged_tuples().
+statf({{Host,Port,Ssl},Pid},Acc) ->
+  [[{host,Host},{port,Port},{ssl,Ssl}]++gen_server:call(Pid, status)|Acc].
+
 
 %% Called when we're done and the socket can still be reused
 -spec checkin(host(), port_number(), SSL::boolean(), Socket::port()) -> ok.
@@ -82,6 +93,14 @@ init({Host,Port,Ssl,MaxConn,ConnTimeout}) ->
         false ->
             ignore
     end.
+
+handle_call(status, _From, S) ->
+    Stat = [{client_count,ets:info(S#state.clients, size)},
+            {max_conn,S#state.max_conn},
+            {connection_timeout,S#state.timeout},
+            {pid,self()},
+            {free_count,length(S#state.free)}],
+    {reply,Stat,S};
 
 handle_call({checkout,Pid}, _From, S = #state{free=[], max_conn=Max, clients=Tid}) ->
     Size = ets:info(Tid, size),
@@ -166,27 +185,26 @@ terminate(_Reason, #state{host=H, port=P, ssl=Ssl, free=Free, clients=Tid}) ->
 %% Potential race condition: if the lb shuts itself down after a while, it
 %% might happen between a read and the use of the pid. A busy load balancer
 %% should not have this problem.
--spec find_lb(Name::{host(),port_number(),boolean()}, {max_connections(), connection_timeout()}) -> pid().
+-spec find_lb(Name::{host(),port_number(),boolean()},
+              {max_connections(), connection_timeout()}) -> pid().
 find_lb(Name = {Host,Port,Ssl}, Args={MaxConn, ConnTimeout}) ->
-    case ets:lookup(?MODULE, Name) of
-        [] ->
-            case supervisor:start_child(lhttpc_sup, [Host,Port,Ssl,MaxConn,ConnTimeout]) of
+    case find_lb(Name) of
+        {error,undefined} ->
+            case supervisor:start_child(lhttpc_sup,
+                                        [Host,Port,Ssl,MaxConn,ConnTimeout]) of
                 {ok, undefined} -> find_lb(Name,Args);
                 {ok, Pid} -> Pid
             end;
-        [{_Name, Pid}] ->
-            case is_process_alive(Pid) of % lb died, stale entry
-                true -> Pid;
-                false ->
-                    ets:delete(?MODULE, Name),
-                    find_lb(Name,Args)
-            end
+        {ok, Pid} ->
+            Pid
     end.
 
-%% Version of the function to be used when we don't want to start a load balancer
-%% if none is found
--spec find_lb(Name::{host(),port_number(),boolean()}) -> {error,undefined} | {ok,pid()}.
-find_lb(Name={_Host,_Port,_Ssl}) ->
+%% Version of the function to be used when we don't want to start a
+%% load balancer if none is found
+
+-spec find_lb(Name::{host(),port_number(),boolean()}) ->
+                 {error,undefined} | {ok,pid()}.
+find_lb(Name = {_Host,_Port,_Ssl}) ->
     case ets:lookup(?MODULE, Name) of
         [] -> {error, undefined};
         [{_Name, Pid}] ->
