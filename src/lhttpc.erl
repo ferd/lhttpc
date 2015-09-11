@@ -25,7 +25,7 @@
 %%% ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%% ----------------------------------------------------------------------------
 
-%%% @author Oscar Hellström <oscar@hellstrom.st>
+%%% @author Oscar HellstrÃ¶m <oscar@hellstrom.st>
 %%% @doc Main interface to the lightweight http client.
 %%% See {@link request/4}, {@link request/5} and {@link request/6} functions.
 %%% @end
@@ -334,7 +334,7 @@ request(URL, Method, Hdrs, Body, Timeout, Options) ->
     headers(), iolist(), timeout(), [option()]) -> result().
 request(Host, Port, Ssl, Path, Method, Hdrs, Body, Timeout, Options) ->
     ok = verify_options(Options),
-    ReqId = now(),
+    ReqId = erlang:timestamp(),
     case proplists:is_defined(stream_to, Options) of
         true ->
             StreamTo = proplists:get_value(stream_to, Options),
